@@ -1,0 +1,7 @@
+[theme]
+base="light"
+primaryColor="#3D5AFE"         # Indigo accent
+backgroundColor="#FFFFFF"      # Clean white background
+secondaryBackgroundColor="#F4F6F8"  # Subtle gray
+textColor="#263238"            # Almost black text
+font="sans serif"              # Clean font
