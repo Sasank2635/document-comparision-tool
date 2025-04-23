@@ -139,8 +139,8 @@ uploaded_files = st.file_uploader(
 
 # Optional custom prompt input
 custom_prompt = st.text_area(
-    "✍️ Optional: Enter a custom comparison prompt (leave empty to use default)",
-    placeholder="e.g. Compare these two files for Invoice Number only..."
+    "✍️ Optional: Enter a field or custom prompt",
+    placeholder="e.g. Invoice Number, Currency"
 )
 
 # Toggle for including default results with custom prompt

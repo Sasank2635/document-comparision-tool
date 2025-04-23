@@ -31,7 +31,7 @@ def compare_pdfs(file1, file2, doc_type, custom_prompt=None, include_default=Fal
     import json
 
     generation_config = genai.types.GenerationConfig(
-        temperature=0.2,  # Lower temperature for more consistent results
+        temperature=0.1,  # Lower temperature for more consistent results
         top_p=1,
         top_k=1,
         max_output_tokens=16384,
@@ -52,24 +52,28 @@ def compare_pdfs(file1, file2, doc_type, custom_prompt=None, include_default=Fal
     if custom_prompt and custom_prompt.strip():
         try:
             # Use the custom prompt exactly as entered, but ensure JSON output format
-            exact_custom_prompt = f"""
-            {custom_prompt.strip()}
+            prompt_to_use = layman_to_prompt(custom_prompt, doc_type) if custom_prompt else None
 
-            Return ONLY JSON in this exact format:
-            {{
-                "differences": [
-                    {{
-                        "field": "Field Name",
-                        "file1_value": "Value in first file",
-                        "file2_value": "Value in second file"
-                    }}
-                ]
-            }}
-            If no differences, return: {{ "differences": [] }}
-            """
+            # Fallback to user-entered full prompt if not a layman entry
+            if not prompt_to_use:
+                prompt_to_use = f"""
+                {custom_prompt.strip()}
+
+                Return ONLY JSON in this exact format:
+                {{
+                    "differences": [
+                        {{
+                            "field": "Field Name",
+                            "file1_value": "Value in first file",
+                            "file2_value": "Value in second file"
+                        }}
+                    ]
+                }}
+                If no differences, return: {{ "differences": [] }}
+                """
 
             chat_session = model.start_chat()
-            response = chat_session.send_message([file1, file2, exact_custom_prompt])
+            response = chat_session.send_message([file1, file2, prompt_to_use])
             custom_result = json.loads(response.text)
             results["custom"] = custom_result
         except Exception as e:
@@ -99,6 +103,56 @@ def compare_pdfs(file1, file2, doc_type, custom_prompt=None, include_default=Fal
     return json.dumps(results)
 
 
+def layman_to_prompt(user_input, doc_type):
+    """Converts simple keywords to structured Gemini prompt."""
+    if not user_input.strip():
+        return None
+
+    fields = [f.strip() for f in user_input.split(",") if f.strip()]
+    formatted = "\n".join([f"- {field}" for field in fields])
+
+    if doc_type == "Invoices":
+        return f"""
+Please compare the following field(s) in the two invoice documents:
+
+{formatted}
+
+Return only the differences in structured JSON:
+{{
+  "differences": [
+    {{
+      "field": "FIELD_NAME",
+      "file1_value": "value from file 1",
+      "file2_value": "value from file 2"
+    }}
+  ]
+}}
+
+If there are no differences, return:
+{{ "differences": [] }}
+"""
+    else:  # Contracts
+        return f"""
+Please compare the following field(s) in the two contract documents:
+
+{formatted}
+
+Return only the differences in structured JSON:
+{{
+  "differences": [
+    {{
+      "field": "FIELD_NAME",
+      "file1_value": "value from contract 1",
+      "file2_value": "value from contract 2"
+    }}
+  ]
+}}
+
+If there are no differences, return:
+{{ "differences": [] }}
+"""
+
+
 def get_default_prompt(doc_type):
     """Returns the default prompt based on document type"""
     if doc_type == "Invoices":
@@ -112,7 +166,7 @@ def get_default_prompt(doc_type):
     - SHIPMENT_NUMBER
     - CONTRACT_NUMBER
     - CURRENCY
-    - DUE_DATE
+    - DUE_DATE (yyyy-mm-dd)
     - TOTAL_TAX
     - SUB_TOTAL
     - TOTAL_AMOUNT
